@@ -1,0 +1,113 @@
+package net.minecraft.util;
+
+import com.mojang.datafixers.util.Either;
+import com.mojang.datafixers.util.Pair;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.DataResult;
+import com.mojang.serialization.DynamicOps;
+import com.mojang.serialization.codecs.PrimitiveCodec;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.DoubleStream;
+
+public class ExtraCodecs {
+   public static final Codec<DoubleStream> DOUBLE_STREAM = new PrimitiveCodec<DoubleStream>() {
+      public <T> DataResult<DoubleStream> read(DynamicOps<T> var1, T var2) {
+         return ExtraCodecs.asDoubleStream(var1, var2);
+      }
+
+      public <T> T write(DynamicOps<T> var1, DoubleStream var2) {
+         return ExtraCodecs.createDoubleList(var1, var2);
+      }
+
+      public String toString() {
+         return "DoubleStream";
+      }
+
+      // $FF: synthetic method
+      public Object write(DynamicOps var1, Object var2) {
+         return this.write(var1, (DoubleStream)var2);
+      }
+   };
+
+   private static <T> DataResult<DoubleStream> asDoubleStream(DynamicOps<T> var0, T var1) {
+      return var0.getStream(var1).flatMap((var2) -> {
+         List var3 = (List)var2.collect(Collectors.toList());
+         return var3.stream().allMatch((var1x) -> {
+            return var0.getNumberValue(var1x).result().isPresent();
+         }) ? DataResult.success(var3.stream().mapToDouble((var1x) -> {
+            return ((Number)var0.getNumberValue(var1x).result().get()).doubleValue();
+         })) : DataResult.error("Some elements are not doubles: " + var1);
+      });
+   }
+
+   private static <T> T createDoubleList(DynamicOps<T> var0, DoubleStream var1) {
+      var0.getClass();
+      return var0.createList(var1.mapToObj(var0::createDouble));
+   }
+
+   public static <F, S> Codec<Either<F, S>> xor(Codec<F> var0, Codec<S> var1) {
+      return new ExtraCodecs.XorCodec(var0, var1);
+   }
+
+   static final class XorCodec<F, S> implements Codec<Either<F, S>> {
+      private final Codec<F> first;
+      private final Codec<S> second;
+
+      public XorCodec(Codec<F> var1, Codec<S> var2) {
+         super();
+         this.first = var1;
+         this.second = var2;
+      }
+
+      public <T> DataResult<Pair<Either<F, S>, T>> decode(DynamicOps<T> var1, T var2) {
+         DataResult var3 = this.first.decode(var1, var2).map((var0) -> {
+            return var0.mapFirst(Either::left);
+         });
+         DataResult var4 = this.second.decode(var1, var2).map((var0) -> {
+            return var0.mapFirst(Either::right);
+         });
+         Optional var5 = var3.result();
+         Optional var6 = var4.result();
+         if (var5.isPresent() && var6.isPresent()) {
+            return DataResult.error("Both alternatives read successfully, can not pick the correct one; first: " + var5.get() + " second: " + var6.get(), var5.get());
+         } else {
+            return var5.isPresent() ? var3 : var4;
+         }
+      }
+
+      public <T> DataResult<T> encode(Either<F, S> var1, DynamicOps<T> var2, T var3) {
+         return (DataResult)var1.map((var3x) -> {
+            return this.first.encode(var3x, var2, var3);
+         }, (var3x) -> {
+            return this.second.encode(var3x, var2, var3);
+         });
+      }
+
+      public boolean equals(Object var1) {
+         if (this == var1) {
+            return true;
+         } else if (var1 != null && this.getClass() == var1.getClass()) {
+            ExtraCodecs.XorCodec var2 = (ExtraCodecs.XorCodec)var1;
+            return Objects.equals(this.first, var2.first) && Objects.equals(this.second, var2.second);
+         } else {
+            return false;
+         }
+      }
+
+      public int hashCode() {
+         return Objects.hash(new Object[]{this.first, this.second});
+      }
+
+      public String toString() {
+         return "XorCodec[" + this.first + ", " + this.second + ']';
+      }
+
+      // $FF: synthetic method
+      public DataResult encode(Object var1, DynamicOps var2, Object var3) {
+         return this.encode((Either)var1, var2, var3);
+      }
+   }
+}

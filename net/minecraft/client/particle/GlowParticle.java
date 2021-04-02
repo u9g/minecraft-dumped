@@ -1,0 +1,75 @@
+package net.minecraft.client.particle;
+
+import java.util.Random;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.particles.SimpleParticleType;
+import net.minecraft.util.Mth;
+
+public class GlowParticle extends TextureSheetParticle {
+   private static final Random RANDOM = new Random();
+   private final SpriteSet sprites;
+
+   private GlowParticle(ClientLevel var1, double var2, double var4, double var6, double var8, double var10, double var12, SpriteSet var14) {
+      super(var1, var2, var4, var6, 0.5D - RANDOM.nextDouble(), var10, 0.5D - RANDOM.nextDouble());
+      this.friction = 0.96F;
+      this.speedUpWhenYMotionIsBlocked = true;
+      this.sprites = var14;
+      this.yd *= 0.20000000298023224D;
+      if (var8 == 0.0D && var12 == 0.0D) {
+         this.xd *= 0.10000000149011612D;
+         this.zd *= 0.10000000149011612D;
+      }
+
+      this.quadSize *= 0.75F;
+      this.lifetime = (int)(8.0D / (Math.random() * 0.8D + 0.2D));
+      if (this.random.nextBoolean()) {
+         this.setColor(0.6F, 1.0F, 0.8F);
+      } else {
+         this.setColor(0.08F, 0.4F, 0.4F);
+      }
+
+      this.hasPhysics = false;
+      this.setSpriteFromAge(var14);
+   }
+
+   public ParticleRenderType getRenderType() {
+      return ParticleRenderType.PARTICLE_SHEET_TRANSLUCENT;
+   }
+
+   public int getLightColor(float var1) {
+      float var2 = ((float)this.age + var1) / (float)this.lifetime;
+      var2 = Mth.clamp(var2, 0.0F, 1.0F);
+      int var3 = super.getLightColor(var1);
+      int var4 = var3 & 255;
+      int var5 = var3 >> 16 & 255;
+      var4 += (int)(var2 * 15.0F * 16.0F);
+      if (var4 > 240) {
+         var4 = 240;
+      }
+
+      return var4 | var5 << 16;
+   }
+
+   public void tick() {
+      super.tick();
+      this.setSpriteFromAge(this.sprites);
+   }
+
+   // $FF: synthetic method
+   GlowParticle(ClientLevel var1, double var2, double var4, double var6, double var8, double var10, double var12, SpriteSet var14, Object var15) {
+      this(var1, var2, var4, var6, var8, var10, var12, var14);
+   }
+
+   public static class Provider implements ParticleProvider<SimpleParticleType> {
+      private final SpriteSet sprite;
+
+      public Provider(SpriteSet var1) {
+         super();
+         this.sprite = var1;
+      }
+
+      public Particle createParticle(SimpleParticleType var1, ClientLevel var2, double var3, double var5, double var7, double var9, double var11, double var13) {
+         return new GlowParticle(var2, var3, var5, var7, var9, var11, var13, this.sprite);
+      }
+   }
+}

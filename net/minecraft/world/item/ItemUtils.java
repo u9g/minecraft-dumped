@@ -1,0 +1,84 @@
+package net.minecraft.world.item;
+
+import java.util.Optional;
+import java.util.function.Supplier;
+import java.util.stream.Stream;
+import net.minecraft.advancements.CriteriaTriggers;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
+
+public class ItemUtils {
+   public static InteractionResultHolder<ItemStack> startUsingInstantly(Level var0, Player var1, InteractionHand var2) {
+      var1.startUsingItem(var2);
+      return InteractionResultHolder.consume(var1.getItemInHand(var2));
+   }
+
+   public static ItemStack createFilledResult(ItemStack var0, Player var1, ItemStack var2, boolean var3) {
+      boolean var4 = var1.getAbilities().instabuild;
+      if (var3 && var4) {
+         if (!var1.getInventory().contains(var2)) {
+            var1.getInventory().add(var2);
+         }
+
+         return var0;
+      } else {
+         if (!var4) {
+            var0.shrink(1);
+         }
+
+         if (var0.isEmpty()) {
+            return var2;
+         } else {
+            if (!var1.getInventory().add(var2)) {
+               var1.drop(var2, false);
+            }
+
+            return var0;
+         }
+      }
+   }
+
+   public static ItemStack createFilledResult(ItemStack var0, Player var1, ItemStack var2) {
+      return createFilledResult(var0, var1, var2, true);
+   }
+
+   public static void onContainerDestroyed(ItemEntity var0, Stream<ItemStack> var1) {
+      Level var2 = var0.level;
+      if (!var2.isClientSide) {
+         var1.forEach((var2x) -> {
+            var2.addFreshEntity(new ItemEntity(var2, var0.getX(), var0.getY(), var0.getZ(), var2x));
+         });
+      }
+   }
+
+   public static Optional<InteractionResult> bucketMobPickup(Player var0, InteractionHand var1, LivingEntity var2, SoundEvent var3, Supplier<ItemStack> var4) {
+      ItemStack var5 = var0.getItemInHand(var1);
+      if (var5.getItem() == Items.WATER_BUCKET && var2.isAlive()) {
+         var2.playSound(var3, 1.0F, 1.0F);
+         var5.shrink(1);
+         ItemStack var6 = (ItemStack)var4.get();
+         Level var7 = var2.level;
+         if (!var7.isClientSide) {
+            CriteriaTriggers.FILLED_BUCKET.trigger((ServerPlayer)var0, var6);
+         }
+
+         if (var5.isEmpty()) {
+            var0.setItemInHand(var1, var6);
+         } else if (!var0.getInventory().add(var6)) {
+            var0.drop(var6, false);
+         }
+
+         var2.discard();
+         return Optional.of(InteractionResult.sidedSuccess(var7.isClientSide));
+      } else {
+         return Optional.empty();
+      }
+   }
+}
